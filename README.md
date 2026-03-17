@@ -36,10 +36,10 @@ sudo mv plf /usr/local/bin/
 plf render examples/sysadmin.plf \
   --var mensaje_usuario="El servicio PostgreSQL no inicia desde las 3am"
 
-# Renderizar para Anthropic API (JSON listo para enviar)
+# Renderizar para Nexus API (JSON listo para enviar)
 plf render examples/sysadmin.plf \
   --var mensaje_usuario="nginx devuelve 502" \
-  --format anthropic \
+  --format nexus \
   --json \
   --output prompt.json
 
@@ -59,7 +59,7 @@ plf lint examples/sysadmin.plf
 @meta
   version: 1.0
   lang: es
-  target: anthropic
+  target: nexus
 
 @role
   Eres un técnico de sistemas Ubuntu 24.04. Solo trabajas con
@@ -122,7 +122,7 @@ func BuildPrompt(plfPath, userInput string) (*types.RenderResult, error) {
 
     return renderer.Render(doc, types.RenderOptions{
         Vars:   map[string]string{"mensaje_usuario": userInput},
-        Format: types.FormatAnthropic,
+        Format: types.FormatNexus,
     })
 }
 ```

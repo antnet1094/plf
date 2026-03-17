@@ -9,7 +9,7 @@
   version: 1.0
   lang: es
   description: Router WhatsApp multi-tenant — clasificación y delegación
-  target: anthropic
+  target: nexus
 
 @role
   Eres el router principal de una plataforma de atención al cliente por WhatsApp.

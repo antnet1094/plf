@@ -92,7 +92,7 @@ func runRender(args []string) error {
 	fs := flag.NewFlagSet("render", flag.ContinueOnError)
 	var vars varFlags
 	fs.Var(&vars, "var", "Template variable key=value (repeatable)")
-	format := fs.String("format", "", "Output format: raw|openai|anthropic|ollama")
+	format := fs.String("format", "", "Output format: raw|core|nexus|local")
 	outputFile := fs.String("output", "", "Write output to file")
 	jsonOut := fs.Bool("json", false, "Output as JSON")
 	if err := fs.Parse(args); err != nil {
@@ -123,10 +123,10 @@ func runRender(args []string) error {
 	var out []byte
 	if *jsonOut {
 		switch strings.ToLower(*format) {
-		case types.FormatOpenAI:
-			out, _ = json.MarshalIndent(renderer.ToOpenAI(result), "", "  ")
-		case types.FormatAnthropic:
-			out, _ = json.MarshalIndent(renderer.ToAnthropic(result), "", "  ")
+		case types.FormatCore:
+			out, _ = json.MarshalIndent(renderer.ToCore(result), "", "  ")
+		case types.FormatNexus:
+			out, _ = json.MarshalIndent(renderer.ToNexus(result), "", "  ")
 		default:
 			out, _ = json.MarshalIndent(map[string]string{"system": result.System, "user": result.User}, "", "  ")
 		}
@@ -299,14 +299,14 @@ COMMANDS:
 
 RENDER FLAGS:
   -var key=value    Template variable (repeatable)
-  -format string    Output format: raw | openai | anthropic | ollama
+  -format string    Output format: raw | core | nexus | local
   -json             Output as JSON
   -output string    Write to file instead of stdout
 
 EXAMPLES:
   plf validate examples/sysadmin.plf
   plf render   examples/sysadmin.plf -var mensaje_usuario="El servicio no inicia"
-  plf render   examples/sysadmin.plf -var mensaje_usuario="502" -format anthropic -json -output p.json
+  plf render   examples/sysadmin.plf -var mensaje_usuario="502" -format nexus -json -output p.json
   plf inspect  examples/whatsapp_router.plf
   plf lint     examples/restaurant_bot.plf
 

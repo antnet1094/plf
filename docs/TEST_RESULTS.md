@@ -73,9 +73,9 @@
 | TestRender_BasicPLF | ✅ PASS | Render PLF básico |
 | TestRender_WithVariables | ✅ PASS | Con variables |
 | TestRender_UnresolvedVariables | ✅ PASS | Variables sin resolver |
-| TestRender_AnthropicFormat | ✅ PASS | Formato Anthropic |
-| TestRender_OpenAIFormat | ✅ PASS | Formato OpenAI |
-| TestRender_OllamaFormat | ✅ PASS | Formato Ollama |
+| TestRender_NexusFormat | ✅ PASS | Formato Nexus |
+| TestRender_CoreFormat | ✅ PASS | Formato Core |
+| TestRender_LocalFormat | ✅ PASS | Formato Local |
 | TestRender_RawFormat | ✅ PASS | Formato raw |
 | TestRender_EmptyVars | ✅ PASS | Sin variables |
 | TestRender_ComplexPLF | ✅ PASS | PLF complejo |
@@ -89,10 +89,10 @@
 
 | Test | Error | Razón |
 |------|-------|-------|
-| TestRender_ToAnthropicHelper | Compilation | Type assertion issue |
-| TestRender_ToOpenAIHelper | Compilation | Type assertion issue |
+| TestRender_ToNexusHelper | Compilation | Type assertion issue |
+| TestRender_ToCoreHelper | Compilation | Type assertion issue |
 
-**Razón:** Los helpers `ToAnthropic` y `ToOpenAI` retornan `map[string]interface{}` en lugar de structs tipados.
+**Razón:** Los helpers `ToNexus` y `ToCore` retornan `map[string]interface{}` en lugar de structs tipados.
 
 **Solución:** Requiere refactor del renderer para usar structs tipados.
 
@@ -132,7 +132,7 @@
    - ✅ Detección de contradicciones
 
 3. **Renderer** - 70% funcional
-   - ✅ Todos los formatos (Raw, Anthropic, OpenAI, Ollama)
+   - ✅ Todos los formatos (Raw, Nexus, Core, Local)
    - ✅ Variables de template
    - ✅ Preservación de formatting
 
@@ -141,8 +141,8 @@
 ### ⚠️ Lo que Necesita Trabajo
 
 1. **Renderer Helpers**
-   - ❌ `ToAnthropic()` retorna map en lugar de struct
-   - ❌ `ToOpenAI()` retorna map en lugar de struct
+   - ❌ `ToNexus()` retorna map en lugar de struct
+   - ❌ `ToCore()` retorna map en lugar de struct
    - **Impacto:** Tests no compilan, pero funcionalidad funciona
 
 2. **Test de Archivos**

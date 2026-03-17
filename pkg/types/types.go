@@ -42,10 +42,10 @@ const (
 
 // Render target formats
 const (
-	FormatRaw       = "raw"
-	FormatOpenAI    = "openai"
-	FormatAnthropic = "anthropic"
-	FormatOllama    = "ollama"
+	FormatRaw   = "raw"
+	FormatCore  = "core"
+	FormatNexus = "nexus"
+	FormatLocal = "local"
 )
 
 // MetaConfig holds document-level metadata.
@@ -54,7 +54,7 @@ type MetaConfig struct {
 	Lang        string
 	Description string
 	Author      string
-	Target      string // preferred render target: openai, anthropic, ollama, raw
+	Target      string // preferred render target: core, nexus, local, raw
 }
 
 // ContextEntry is a single verified knowledge boundary entry.
@@ -162,35 +162,35 @@ type RenderResult struct {
 	UnresolvedVars []string
 }
 
-// OpenAIResponse matches the Chat Completion message format.
-type OpenAIResponse struct {
-	Messages []OpenAIMessage `json:"messages"`
+// CoreResponse matches the Core message format.
+type CoreResponse struct {
+	Messages []CoreMessage `json:"messages"`
 }
 
-type OpenAIMessage struct {
+type CoreMessage struct {
 	Role    string `json:"role"`
 	Content string `json:"content"`
 }
 
-// AnthropicResponse matches the Messages API format.
-type AnthropicResponse struct {
-	System   string             `json:"system"`
-	Messages []AnthropicMessage `json:"messages"`
+// NexusResponse matches the Nexus API format.
+type NexusResponse struct {
+	System   string         `json:"system"`
+	Messages []NexusMessage `json:"messages"`
 }
 
-type AnthropicMessage struct {
+type NexusMessage struct {
 	Role    string `json:"role"`
 	Content string `json:"content"`
 }
 
-// OllamaResponse is compatible with the /api/chat endpoint.
-type OllamaResponse struct {
-	Model    string          `json:"model,omitempty"`
-	Messages []OllamaMessage `json:"messages"`
-	Stream   bool            `json:"stream"`
+// LocalResponse is compatible with the local API chat endpoint.
+type LocalResponse struct {
+	Model    string         `json:"model,omitempty"`
+	Messages []LocalMessage `json:"messages"`
+	Stream   bool           `json:"stream"`
 }
 
-type OllamaMessage struct {
+type LocalMessage struct {
 	Role    string `json:"role"`
 	Content string `json:"content"`
 }

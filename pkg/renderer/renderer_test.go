@@ -144,12 +144,12 @@ func TestRender_UnresolvedVariables(t *testing.T) {
 	assert.Contains(t, result.UnresolvedVars, "user_message")
 }
 
-// TestRender_AnthropicFormat tests rendering for Anthropic API
-func TestRender_AnthropicFormat(t *testing.T) {
+// TestRender_NexusFormat tests rendering for Nexus API
+func TestRender_NexusFormat(t *testing.T) {
 	content := `
 @meta
   version: 1.0
-  target: anthropic
+  target: nexus
 
 @role
   You are a helpful assistant.
@@ -179,7 +179,7 @@ func TestRender_AnthropicFormat(t *testing.T) {
 
 	result, err := renderer.Render(doc, types.RenderOptions{
 		Vars:   map[string]string{"message": "Hello"},
-		Format: types.FormatAnthropic,
+		Format: types.FormatNexus,
 	})
 
 	require.NoError(t, err)
@@ -187,12 +187,12 @@ func TestRender_AnthropicFormat(t *testing.T) {
 	assert.NotEmpty(t, result.User)
 }
 
-// TestRender_OpenAIFormat tests rendering for OpenAI API
-func TestRender_OpenAIFormat(t *testing.T) {
+// TestRender_CoreFormat tests rendering for Core API
+func TestRender_CoreFormat(t *testing.T) {
 	content := `
 @meta
   version: 1.0
-  target: openai
+  target: core
 
 @role
   You are a helpful assistant.
@@ -222,7 +222,7 @@ func TestRender_OpenAIFormat(t *testing.T) {
 
 	result, err := renderer.Render(doc, types.RenderOptions{
 		Vars:   map[string]string{"message": "Hello"},
-		Format: types.FormatOpenAI,
+		Format: types.FormatCore,
 	})
 
 	require.NoError(t, err)
@@ -230,12 +230,12 @@ func TestRender_OpenAIFormat(t *testing.T) {
 	assert.NotEmpty(t, result.User)
 }
 
-// TestRender_OllamaFormat tests rendering for Ollama API
-func TestRender_OllamaFormat(t *testing.T) {
+// TestRender_LocalFormat tests rendering for Local API
+func TestRender_LocalFormat(t *testing.T) {
 	content := `
 @meta
   version: 1.0
-  target: ollama
+  target: local
 
 @role
   You are a helpful assistant.
@@ -265,7 +265,7 @@ func TestRender_OllamaFormat(t *testing.T) {
 
 	result, err := renderer.Render(doc, types.RenderOptions{
 		Vars:   map[string]string{"message": "Hello"},
-		Format: types.FormatOllama,
+		Format: types.FormatLocal,
 	})
 
 	require.NoError(t, err)
@@ -364,7 +364,7 @@ func TestRender_ComplexPLF(t *testing.T) {
   version: 1.0
   lang: es
   description: Complex agent
-  target: anthropic
+  target: nexus
 
 @role
   Eres un técnico de sistemas experto.
@@ -410,7 +410,7 @@ func TestRender_ComplexPLF(t *testing.T) {
 			"mensaje_usuario": "PostgreSQL no inicia",
 			"tenant_id":       "tenant-123",
 		},
-		Format: types.FormatAnthropic,
+		Format: types.FormatNexus,
 	})
 
 	require.NoError(t, err)
@@ -464,12 +464,12 @@ func TestRender_PreserveFormatting(t *testing.T) {
 	assert.Contains(t, result.System, "Line 3")
 }
 
-// TestRender_ToAnthropicHelper tests the ToAnthropic helper function
-func TestRender_ToAnthropicHelper(t *testing.T) {
+// TestRender_ToNexusHelper tests the ToNexus helper function
+func TestRender_ToNexusHelper(t *testing.T) {
 	content := `
 @meta
   version: 1.0
-  target: anthropic
+  target: nexus
 
 @role
   You are a helpful assistant.
@@ -499,25 +499,25 @@ func TestRender_ToAnthropicHelper(t *testing.T) {
 
 	result, err := renderer.Render(doc, types.RenderOptions{
 		Vars:   map[string]string{"message": "Hello"},
-		Format: types.FormatAnthropic,
+		Format: types.FormatNexus,
 	})
 
 	require.NoError(t, err)
 	
-	// Test ToAnthropic helper
-	anthropicMsg := renderer.ToAnthropic(result)
-	assert.NotNil(t, anthropicMsg)
-	assert.NotEmpty(t, anthropicMsg.System)
-	assert.NotEmpty(t, anthropicMsg.Messages)
-	assert.Equal(t, "user", anthropicMsg.Messages[0].Role)
+	// Test ToNexus helper
+	nexusMsg := renderer.ToNexus(result)
+	assert.NotNil(t, nexusMsg)
+	assert.NotEmpty(t, nexusMsg.System)
+	assert.NotEmpty(t, nexusMsg.Messages)
+	assert.Equal(t, "user", nexusMsg.Messages[0].Role)
 }
 
-// TestRender_ToOpenAIHelper tests the ToOpenAI helper function
-func TestRender_ToOpenAIHelper(t *testing.T) {
+// TestRender_ToCoreHelper tests the ToCore helper function
+func TestRender_ToCoreHelper(t *testing.T) {
 	content := `
 @meta
   version: 1.0
-  target: openai
+  target: core
 
 @role
   You are a helpful assistant.
@@ -547,17 +547,17 @@ func TestRender_ToOpenAIHelper(t *testing.T) {
 
 	result, err := renderer.Render(doc, types.RenderOptions{
 		Vars:   map[string]string{"message": "Hello"},
-		Format: types.FormatOpenAI,
+		Format: types.FormatCore,
 	})
 
 	require.NoError(t, err)
 	
-	// Test ToOpenAI helper
-	openaiMsg := renderer.ToOpenAI(result)
-	assert.NotNil(t, openaiMsg)
-	assert.NotEmpty(t, openaiMsg.Messages)
-	assert.Equal(t, 2, len(openaiMsg.Messages))
-	assert.Equal(t, "system", openaiMsg.Messages[0].Role)
-	assert.Equal(t, "user", openaiMsg.Messages[1].Role)
+	// Test ToCore helper
+	coreMsg := renderer.ToCore(result)
+	assert.NotNil(t, coreMsg)
+	assert.NotEmpty(t, coreMsg.Messages)
+	assert.Equal(t, 2, len(coreMsg.Messages))
+	assert.Equal(t, "system", coreMsg.Messages[0].Role)
+	assert.Equal(t, "user", coreMsg.Messages[1].Role)
 }
 

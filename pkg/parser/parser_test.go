@@ -309,7 +309,7 @@ func TestParseString_ComplexPLF(t *testing.T) {
   lang: es
   description: Complex test agent
   author: test-team
-  target: anthropic
+  target: nexus
 
 @role
   Eres un asistente experto.
@@ -366,7 +366,7 @@ func TestParseString_ComplexPLF(t *testing.T) {
 	assert.Equal(t, "es", doc.Meta.Lang)
 	assert.Equal(t, "Complex test agent", doc.Meta.Description)
 	assert.Equal(t, "test-team", doc.Meta.Author)
-	assert.Equal(t, "anthropic", doc.Meta.Target)
+	assert.Equal(t, "nexus", doc.Meta.Target)
 	
 	// Verify role
 	assert.NotEmpty(t, doc.Role)

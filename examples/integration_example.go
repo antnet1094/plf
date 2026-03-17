@@ -97,13 +97,13 @@ func (r *Router) Route(msg IncomingMessage) (*PromptPayload, error) {
 			"tenant_id": msg.TenantID,
 			"mensaje":   msg.Body,
 		},
-		Format: types.FormatAnthropic,
+		Format: types.FormatNexus,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("render error: %w", err)
 	}
 
-	apiPayload := renderer.ToAnthropic(result)
+	apiPayload := renderer.ToNexus(result)
 	payload := &PromptPayload{
 		AgentName: "whatsapp_router",
 		System:    apiPayload["system"].(string),
@@ -136,7 +136,7 @@ func BuildAgentPrompt(
 
 	result, err := renderer.Render(doc, types.RenderOptions{
 		Vars:   vars,
-		Format: types.FormatAnthropic,
+		Format: types.FormatNexus,
 	})
 	if err != nil {
 		return nil, err
@@ -146,7 +146,7 @@ func BuildAgentPrompt(
 		log.Printf("[plf] agent=%s unresolved vars: %v", agentName, result.UnresolvedVars)
 	}
 
-	apiPayload := renderer.ToAnthropic(result)
+	apiPayload := renderer.ToNexus(result)
 	return &PromptPayload{
 		AgentName: agentName,
 		System:    apiPayload["system"].(string),

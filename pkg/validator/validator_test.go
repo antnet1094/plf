@@ -511,7 +511,7 @@ func TestValidate_ComplexValidPLF(t *testing.T) {
   version: 1.0
   lang: es
   description: Complex valid agent
-  target: anthropic
+  target: nexus
 
 @role
   Eres un técnico de sistemas experto.

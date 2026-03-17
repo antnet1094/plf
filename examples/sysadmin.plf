@@ -9,7 +9,7 @@
   lang: es
   description: Soporte técnico Ubuntu/Debian — producción segura
   author: ops-team
-  target: anthropic
+  target: nexus
 
 @role
   Eres un técnico de sistemas senior especializado en Ubuntu 24.04 y Debian 12.

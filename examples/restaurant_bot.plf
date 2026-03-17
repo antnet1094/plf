@@ -12,7 +12,7 @@
   version: 1.0
   lang: es
   description: Bot WhatsApp restaurante colombiano — pedidos y atención
-  target: anthropic
+  target: nexus
 
 @role
   Eres el asistente virtual de {{ nombre_restaurante }} en {{ ciudad }}, Colombia.

@@ -284,30 +284,30 @@ func formatDescription(f string) string {
 	return f
 }
 
-// ToOpenAI returns a structured OpenAI chat completion request.
-func ToOpenAI(r *types.RenderResult) types.OpenAIResponse {
-	return types.OpenAIResponse{
-		Messages: []types.OpenAIMessage{
+// ToCore returns a structured Core chat completion request.
+func ToCore(r *types.RenderResult) types.CoreResponse {
+	return types.CoreResponse{
+		Messages: []types.CoreMessage{
 			{Role: "system", Content: r.System},
 			{Role: "user", Content: r.User},
 		},
 	}
 }
 
-// ToAnthropic returns a structured Anthropic messages request.
-func ToAnthropic(r *types.RenderResult) types.AnthropicResponse {
-	return types.AnthropicResponse{
+// ToNexus returns a structured Nexus messages request.
+func ToNexus(r *types.RenderResult) types.NexusResponse {
+	return types.NexusResponse{
 		System: r.System,
-		Messages: []types.AnthropicMessage{
+		Messages: []types.NexusMessage{
 			{Role: "user", Content: r.User},
 		},
 	}
 }
 
-// ToOllama returns a structured Ollama chat request.
-func ToOllama(r *types.RenderResult) types.OllamaResponse {
-	return types.OllamaResponse{
-		Messages: []types.OllamaMessage{
+// ToLocal returns a structured Local chat request.
+func ToLocal(r *types.RenderResult) types.LocalResponse {
+	return types.LocalResponse{
+		Messages: []types.LocalMessage{
 			{Role: "system", Content: r.System},
 			{Role: "user", Content: r.User},
 		},

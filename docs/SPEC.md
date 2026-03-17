@@ -72,7 +72,7 @@ Un archivo `.plf` es texto plano con secciones marcadas por `@nombre_sección`.
   lang: es
   description: Descripción breve del agente
   author: equipo-ops
-  target: anthropic
+  target: nexus
 ```
 
 | Campo | Valores válidos | Descripción |
@@ -81,7 +81,7 @@ Un archivo `.plf` es texto plano con secciones marcadas por `@nombre_sección`.
 | `lang` | código BCP-47 (`es`, `en`) | Idioma por defecto |
 | `description` | texto libre | Descripción del agente |
 | `author` | texto libre | Autor o equipo |
-| `target` | `raw` `openai` `anthropic` `ollama` | API de destino |
+| `target` | `raw` `core` `nexus` `local` | API de destino |
 
 ---
 
@@ -254,7 +254,7 @@ Especifica la estructura exacta que debe tener la respuesta del agente.
 
 Todo en un único string. Útil para modelos vía API directa o stdin.
 
-### `openai`
+### `core`
 
 ```json
 {
@@ -265,7 +265,7 @@ Todo en un único string. Útil para modelos vía API directa o stdin.
 }
 ```
 
-### `anthropic`
+### `nexus`
 
 ```json
 {
@@ -276,9 +276,9 @@ Todo en un único string. Útil para modelos vía API directa o stdin.
 }
 ```
 
-### `ollama`
+### `local`
 
-Compatible con el endpoint `/api/chat` de Ollama.
+Compatible con el endpoint `/api/chat` de Local.
 
 ---
 
@@ -291,10 +291,10 @@ plf validate sysadmin.plf
 # Renderizar con variables
 plf render sysadmin.plf --var mensaje_usuario="El servicio PostgreSQL no inicia"
 
-# Renderizar para la API de Anthropic y guardar JSON
+# Renderizar para la API de Nexus y guardar JSON
 plf render sysadmin.plf \
   --var mensaje_usuario="error en nginx" \
-  --format anthropic \
+  --format nexus \
   --json \
   --output prompt.json
 
@@ -329,11 +329,11 @@ if validator.HasErrors(issues) {
 // Renderizar
 result, err := renderer.Render(doc, types.RenderOptions{
     Vars:   map[string]string{"mensaje_usuario": userInput},
-    Format: types.FormatAnthropic,
+    Format: types.FormatNexus,
 })
 
 // Usar en llamada a API
-payload := renderer.ToAnthropic(result)
+payload := renderer.ToNexus(result)
 ```
 
 ---

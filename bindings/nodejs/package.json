@@ -1,6 +1,6 @@
 {
   "name": "plf-js",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "JavaScript/Node.js bindings for Prompt Language Format (PLF)",
   "main": "index.js",
   "scripts": {

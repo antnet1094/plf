@@ -127,6 +127,14 @@ go build -o libplf.so -buildmode=c-shared bridge.go
 
 ---
 
+## 🛠️ Herramientas de Desarrollador (DX)
+
+### Visual Studio Code
+Para una mejor experiencia escribiendo archivos `.plf`, instala el soporte oficial de resaltado de sintaxis:
+👉 **[Instalar desde el VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=AntNetworks.vscode-plf)**
+
+---
+
 ## Licencia
 
 MIT — libre para uso comercial.

@@ -1,0 +1,35 @@
+{
+    "name": "vscode-plf",
+    "displayName": "PLF Syntax Highlighting",
+    "description": "Syntax highlighting for Prompt Language Format (.plf) files.",
+    "version": "1.0.0",
+    "publisher": "antnet1094",
+    "engines": {
+        "vscode": "^1.60.0"
+    },
+    "categories": [
+        "Programming Languages"
+    ],
+    "contributes": {
+        "languages": [
+            {
+                "id": "plf",
+                "aliases": [
+                    "Prompt Language Format",
+                    "plf"
+                ],
+                "extensions": [
+                    ".plf"
+                ],
+                "configuration": "./language-configuration.json"
+            }
+        ],
+        "grammars": [
+            {
+                "language": "plf",
+                "scopeName": "source.plf",
+                "path": "./syntaxes/plf.tmLanguage.json"
+            }
+        ]
+    }
+}

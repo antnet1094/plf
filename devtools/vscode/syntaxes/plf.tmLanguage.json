@@ -1,0 +1,44 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "PLF Syntax",
+	"patterns": [
+		{ "include": "#comments" },
+		{ "include": "#sections" },
+		{ "include": "#directives" },
+		{ "include": "#variables" },
+		{ "include": "#keywords" }
+	],
+	"repository": {
+		"comments": {
+			"patterns": [{
+				"name": "comment.line.number-sign.plf",
+				"match": "#.*$"
+			}]
+		},
+		"sections": {
+			"patterns": [{
+				"name": "entity.name.section.plf",
+				"match": "^@[a-zA-Z_]+"
+			}]
+		},
+		"directives": {
+			"patterns": [{
+				"name": "keyword.control.plf",
+				"match": "^\\s*(NEVER|ALWAYS|IF|MAX|MIN):"
+			}]
+		},
+		"variables": {
+			"patterns": [{
+				"name": "variable.other.plf",
+				"match": "\\{\\{\\s*\\w+\\s*\\}\\}"
+			}]
+		},
+		"keywords": {
+			"patterns": [{
+				"name": "keyword.other.plf",
+				"match": "\\s+(fallback|restrict|warn)\\s"
+			}]
+		}
+	},
+	"scopeName": "source.plf"
+}

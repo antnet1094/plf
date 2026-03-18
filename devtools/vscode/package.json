@@ -1,9 +1,10 @@
 {
     "name": "vscode-plf",
-    "displayName": "PLF Syntax Highlighting",
-    "description": "Syntax highlighting for Prompt Language Format (.plf) files.",
+    "displayName": "Prompt Language Format (PLF) - Syntax Highlighting",
+    "description": "The official structured prompt language for LLMs. Stop hallucinations with explicit knowledge boundaries, behavioral fallbacks, and reasoning chains.",
     "version": "1.0.0",
-    "publisher": "antnet1094",
+    "publisher": "AntNetworks",
+    "icon": "icon.png",
     "engines": {
         "vscode": "^1.60.0"
     },

@@ -143,7 +143,32 @@ func checkOutput(doc *types.Document) []types.ValidationIssue {
 	var issues []types.ValidationIssue
 	if doc.Output.Format == "" {
 		issues = append(issues, warn("output", "no output format defined"))
+	} else {
+		validFormats := map[string]bool{
+			"numbered_steps": true,
+			"json":           true,
+			"markdown":       true,
+			"plain":          true,
+			"delegation":     true,
+		}
+		if !validFormats[doc.Output.Format] {
+			issues = append(issues, err("output", fmt.Sprintf("invalid format: %s", doc.Output.Format)))
+		}
 	}
+	
+	validTypes := map[string]bool{
+		"string": true, "integer": true, "number": true, "boolean": true, "array": true, "object": true,
+	}
+	typeRe := regexp.MustCompile(`\(\s*(\w+)\s*\)`)
+	for _, f := range doc.Output.Fields {
+		if m := typeRe.FindStringSubmatch(f); m != nil {
+			typ := strings.ToLower(m[1])
+			if !validTypes[typ] {
+				issues = append(issues, err("output", fmt.Sprintf("field '%s' uses invalid JSON schema type '%s'", f, m[1])))
+			}
+		}
+	}
+
 	return issues
 }
 
@@ -161,6 +186,27 @@ func checkCrossSection(doc *types.Document) []types.ValidationIssue {
 		for _, step := range doc.Chain {
 			if strings.Contains(strings.ToLower(step.OnFail), "fallback") {
 				issues = append(issues, err("chain", fmt.Sprintf("step %d references fallback but no default action is defined in @fallback", step.Index)))
+			}
+		}
+	}
+
+	// Cross-reference tools used in rules
+	validTools := make(map[string]bool)
+	for _, t := range doc.Tools {
+		validTools[strings.ToLower(t.Name)] = true
+	}
+	
+	// A heuristic: if a rule mentions a tool inside backticks (e.g. `alert_ops`) next to the word "tool" or "herramienta"
+	toolRefRe := regexp.MustCompile("`([^`]+)`")
+	for _, r := range doc.Rules {
+		lowerRule := strings.ToLower(r.Value)
+		if strings.Contains(lowerRule, "tool") || strings.Contains(lowerRule, "herramienta") {
+			matches := toolRefRe.FindAllStringSubmatch(r.Value, -1)
+			for _, m := range matches {
+				toolName := strings.ToLower(m[1])
+				if !validTools[toolName] && len(toolName) > 2 {
+					issues = append(issues, warn("rules", fmt.Sprintf("rule references potential tool `%s` but it is not defined in @tools", m[1])))
+				}
 			}
 		}
 	}

@@ -1,0 +1,10 @@
+@meta
+  version: 1.0
+@role
+  tester
+@context
+  System Health: MCP: file://mock_data.txt
+@task
+  Evaluate health.
+@output
+  format: plain

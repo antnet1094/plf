@@ -1,0 +1,11 @@
+{
+  "target_endpoint": "http://127.0.0.1:8081/v1/chat/completions",
+  "model": "qwen",
+  "tests": [
+    {
+      "name": "Check Health System Context",
+      "vars": {},
+      "expected_include": "cpu"
+    }
+  ]
+}

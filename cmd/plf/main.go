@@ -12,6 +12,7 @@ import (
 	"github.com/antnet1094/plf/pkg/renderer"
 	"github.com/antnet1094/plf/pkg/types"
 	"github.com/antnet1094/plf/pkg/validator"
+	"github.com/antnet1094/plf/pkg/evaluator"
 )
 
 const (
@@ -41,6 +42,8 @@ func main() {
 		err = runInspect(os.Args[2:])
 	case "lint":
 		err = runLint(os.Args[2:])
+	case "eval":
+		err = runEval(os.Args[2:])
 	case "version":
 		fmt.Println("plf version 1.0.0")
 	default:
@@ -95,6 +98,7 @@ func runRender(args []string) error {
 	format := fs.String("format", "", "Output format: raw|core|nexus|local")
 	outputFile := fs.String("output", "", "Write output to file")
 	jsonOut := fs.Bool("json", false, "Output as JSON")
+	minifyOut := fs.Bool("minify", false, "Minify (compress) the prompt to save tokens")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -112,6 +116,17 @@ func runRender(args []string) error {
 	result, err := renderer.Render(doc, types.RenderOptions{
 		Vars:   parseVars(vars),
 		Format: *format,
+		Minify: *minifyOut,
+		Resolver: func(uri string) (string, error) {
+			if strings.HasPrefix(uri, "file://") {
+				b, e := os.ReadFile(strings.TrimPrefix(uri, "file://"))
+				if e != nil {
+					return "", e
+				}
+				return strings.TrimSpace(string(b)), nil
+			}
+			return "", fmt.Errorf("unsupported MCP schema: %s", uri)
+		},
 	})
 	if err != nil {
 		return err
@@ -167,6 +182,27 @@ func runInspect(args []string) error {
 			fmt.Printf("  %s %s\n", col(cyan, e.Key+":"), e.Value)
 		} else {
 			fmt.Printf("  %s\n", e.Value)
+		}
+	}
+	sec("TOOLS")
+	if len(doc.Tools) == 0 {
+		fmt.Printf("  %s\n", col(gray, "(none)"))
+	}
+	for _, t := range doc.Tools {
+		desc := t.Description
+		if desc == "" { desc = col(gray, "(no description)") }
+		fmt.Printf("  %s %s\n", col(green+bold, t.Name+":"), desc)
+		if t.Webhook != "" {
+			fmt.Printf("      %s %s\n", col(cyan, "url:"), t.Webhook)
+		}
+		for _, p := range t.Parameters {
+			req := ""
+			if p.Required { req = col(red, " *") }
+			pDesc := ""
+			if p.Description != "" { pDesc = " - " + p.Description }
+			tStr := p.Type
+			if tStr == "" { tStr = "string" }
+			fmt.Printf("      - %s %s%s%s\n", p.Name, col(cyan, "("+tStr+")"), req, pDesc)
 		}
 	}
 	sec("RULES")
@@ -263,6 +299,40 @@ func runLint(args []string) error {
 	return nil
 }
 
+func runEval(args []string) error {
+	if len(args) < 2 {
+		return fmt.Errorf("usage: plf eval <file.plf> <testsuite.json>")
+	}
+	results, err := evaluator.RunEval(args[0], args[1])
+	if err != nil {
+		return err
+	}
+	fmt.Printf("\n%s EVALUATION RESULTS: %s\n\n", col(bold, "🧪"), args[0])
+	allPassed := true
+	for i, res := range results {
+		status := col(red+bold, "FAIL")
+		if res.Passed {
+			status = col(green+bold, "PASS")
+		} else {
+			allPassed = false
+		}
+		fmt.Printf("  [%d] %-20s %s (%v)\n", i+1, res.CaseName, status, res.Latency)
+		if !res.Passed {
+			if res.Error != nil {
+				fmt.Printf("      Error: %v\n", res.Error)
+			}
+			if res.Response != "" {
+				fmt.Printf("      Response: %s\n", trunc(res.Response, 150))
+			}
+		}
+	}
+	fmt.Println()
+	if !allPassed {
+		return fmt.Errorf("evaluation test suite failed")
+	}
+	return nil
+}
+
 func parseVars(pairs []string) map[string]string {
 	m := make(map[string]string)
 	for _, p := range pairs {
@@ -295,6 +365,7 @@ COMMANDS:
   render   <file.plf> [flags]   Render to a prompt string
   inspect  <file.plf>           Show parsed structure
   lint     <file.plf>           Extended linting with suggestions
+  eval     <file.plf> <tests>   Run regression test suite against LLM
   version                       Print version
 
 RENDER FLAGS:

@@ -24,11 +24,20 @@ var RequiredSections = []string{
 	SectionOutput,
 }
 
+// ToolParameter defines a single parameter for a tool.
+type ToolParameter struct {
+	Name        string `json:"name"`
+	Type        string `json:"type"` // string, integer, boolean, array, object
+	Description string `json:"description"`
+	Required    bool   `json:"required"`
+}
+
 // ToolDefinition represents a function or capability the agent can use.
 type ToolDefinition struct {
-	Name        string                 `json:"name"`
-	Description string                 `json:"description"`
-	Parameters  map[string]interface{} `json:"parameters,omitempty"`
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
+	Webhook     string          `json:"webhook,omitempty"`
+	Parameters  []ToolParameter `json:"parameters,omitempty"`
 }
 
 // Rule directive types
@@ -195,6 +204,10 @@ type LocalMessage struct {
 	Content string `json:"content"`
 }
 
+// DynamicContextResolver is a callback used to fetch dynamic context natively during rendering.
+// It receives the URI/command specified in the @context section (e.g., "MCP: file://logs/app", uri="file://logs/app").
+type DynamicContextResolver func(uri string) (string, error)
+
 // RenderOptions controls the rendering process.
 type RenderOptions struct {
 	// Vars maps template variable names to their values.
@@ -203,4 +216,11 @@ type RenderOptions struct {
 
 	// Format selects the output structure.
 	Format string
+
+	// Resolver allows fetching dynamic context blocks (e.g., MCP calls) at render time.
+	// If nil, dynamic context blocks will be skipped or rendered plainly.
+	Resolver DynamicContextResolver
+
+	// Minify compresses the prompt by removing ASCII art, blank lines, and verbose instructions.
+	Minify bool
 }

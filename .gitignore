@@ -1,0 +1,14 @@
+# Binaries
+*.exe
+plf
+
+# Logs and outputs
+out.txt
+*.log
+
+# Temp files
+test_parse.go
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -104,10 +104,20 @@ func (r *Router) Route(msg IncomingMessage) (*PromptPayload, error) {
 	}
 
 	apiPayload := renderer.ToNexus(result)
+	
+	// Convert NexusMessage to map[string]string for this legacy payload struct
+	var msgs []map[string]string
+	for _, m := range apiPayload.Messages {
+		msgs = append(msgs, map[string]string{
+			"role": m.Role,
+			"content": m.Content,
+		})
+	}
+	
 	payload := &PromptPayload{
 		AgentName: "whatsapp_router",
-		System:    apiPayload["system"].(string),
-		Messages:  apiPayload["messages"].([]map[string]string),
+		System:    apiPayload.System,
+		Messages:  msgs,
 	}
 	return payload, nil
 }
@@ -147,10 +157,19 @@ func BuildAgentPrompt(
 	}
 
 	apiPayload := renderer.ToNexus(result)
+	
+	var msgs []map[string]string
+	for _, m := range apiPayload.Messages {
+		msgs = append(msgs, map[string]string{
+			"role": m.Role,
+			"content": m.Content,
+		})
+	}
+
 	return &PromptPayload{
 		AgentName: agentName,
-		System:    apiPayload["system"].(string),
-		Messages:  apiPayload["messages"].([]map[string]string),
+		System:    apiPayload.System,
+		Messages:  msgs,
 	}, nil
 }
 

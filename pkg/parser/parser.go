@@ -125,6 +125,7 @@ func assemble(sections []rawSection) (*types.Document, error) {
 
 	for _, s := range sections {
 		lines := cleanLines(s.lines)
+		rawLines := cleanLinesPreserveIndent(s.lines)
 		switch s.name {
 		case types.SectionMeta:
 			doc.Meta = parseMeta(lines, doc.Meta)
@@ -133,7 +134,7 @@ func assemble(sections []rawSection) (*types.Document, error) {
 		case types.SectionContext:
 			doc.Context = parseContext(lines)
 		case types.SectionTools:
-			doc.Tools = parseTools(lines)
+			doc.Tools = parseTools(rawLines)
 		case types.SectionRules:
 			doc.Rules = parseRules(lines)
 		case types.SectionFallback:
@@ -197,22 +198,68 @@ func parseContext(lines []string) []types.ContextEntry {
 	return entries
 }
 
-// parseTools handles lines like "tool_name: tool description"
+// parseTools handles tool definition and structured parameters.
 func parseTools(lines []string) []types.ToolDefinition {
 	var tools []types.ToolDefinition
+	var currentTool *types.ToolDefinition
+	inParams := false
+
 	for _, line := range lines {
-		if isComment(line) || strings.TrimSpace(line) == "" {
+		trimmed := strings.TrimSpace(line)
+
+		if strings.HasPrefix(trimmed, "-") && inParams && currentTool != nil {
+			pLine := strings.TrimSpace(strings.TrimPrefix(trimmed, "-"))
+			param := types.ToolParameter{Type: "string"} // Default
+
+			if idx := strings.Index(pLine, ":"); idx != -1 {
+				param.Description = strings.TrimSpace(pLine[idx+1:])
+				pLine = strings.TrimSpace(pLine[:idx])
+			}
+
+			if startIdx := strings.Index(pLine, "("); startIdx != -1 {
+				if endIdx := strings.Index(pLine, ")"); endIdx != -1 && endIdx > startIdx {
+					meta := pLine[startIdx+1 : endIdx]
+					pLine = strings.TrimSpace(pLine[:startIdx])
+					parts := strings.Split(meta, ",")
+					if len(parts) > 0 {
+						param.Type = strings.TrimSpace(parts[0])
+					}
+					if len(parts) > 1 && strings.TrimSpace(strings.ToLower(parts[1])) == "required" {
+						param.Required = true
+					}
+				}
+			}
+
+			param.Name = pLine
+			currentTool.Parameters = append(currentTool.Parameters, param)
 			continue
 		}
-		idx := strings.Index(line, ":")
+
+		if strings.ToLower(trimmed) == "params:" && currentTool != nil {
+			inParams = true
+			continue
+		}
+
+		lower := strings.ToLower(trimmed)
+		if (strings.HasPrefix(lower, "url:") || strings.HasPrefix(lower, "webhook:")) && currentTool != nil {
+			idx := strings.Index(trimmed, ":")
+			currentTool.Webhook = strings.TrimSpace(trimmed[idx+1:])
+			continue
+		}
+
+		idx := strings.Index(trimmed, ":")
 		if idx == -1 {
-			// No colon — just the name
-			tools = append(tools, types.ToolDefinition{Name: strings.TrimSpace(line)})
+			tools = append(tools, types.ToolDefinition{Name: trimmed})
+			currentTool = &tools[len(tools)-1]
+			inParams = false
 			continue
 		}
-		name := strings.TrimSpace(line[:idx])
-		desc := strings.TrimSpace(line[idx+1:])
+		
+		name := strings.TrimSpace(trimmed[:idx])
+		desc := strings.TrimSpace(trimmed[idx+1:])
 		tools = append(tools, types.ToolDefinition{Name: name, Description: desc})
+		currentTool = &tools[len(tools)-1]
+		inParams = false
 	}
 	return tools
 }
@@ -422,6 +469,18 @@ func cleanLines(lines []string) []string {
 			continue
 		}
 		out = append(out, stripped) // normalise to trimmed form
+	}
+	return out
+}
+
+func cleanLinesPreserveIndent(lines []string) []string {
+	var out []string
+	for _, l := range lines {
+		if strings.TrimSpace(l) == "" || strings.HasPrefix(strings.TrimSpace(l), "#") {
+			continue
+		}
+		l = strings.TrimSuffix(l, "\r")
+		out = append(out, l) // preserve original line with indentation
 	}
 	return out
 }

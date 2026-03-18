@@ -1,9 +1,10 @@
 # PLF — Prompt Language Format
 
 [![Go](https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go)](https://go.dev)
+[![Go Reference](https://pkg.go.dev/badge/github.com/antnet1094/plf.svg)](https://pkg.go.dev/github.com/antnet1094/plf)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**Formato estructurado para agentes LLM que reduce alucinaciones mediante fronteras de conocimiento explícitas, protocolos de incertidumbre conductuales y cadenas de razonamiento con puntos de bloqueo.**
+**Formato estructurado para agentes LLM que reduce alucinaciones mediante fronteras de conocimiento explícitas, protocolos de incertidumbre conductuales y resolución dinámica de contexto (MCP).**
 
 ---
 
@@ -15,88 +16,88 @@ Los LLMs no alucinan principalmente por sus pesos — alucinan porque los prompt
 |---|---|---|
 | Contexto implícito (el modelo "adivina") | Alta | `@context` como frontera explícita |
 | Sin protocolo cuando el modelo no sabe | Alta | `@fallback` con señales conductuales |
-| Reglas contradictorias no detectadas | Media | Validador pre-envío |
+| Reglas contradictorias no detectadas | Media | Validador semántico pre-envío |
 | Razonamiento sin puntos de control | Media | `@chain` con bifurcaciones |
-| Output sin estructura definida | Alta | `@output` con formato estricto |
+| Output sin estructura definida | Alta | `@output` con **JSON Schema rígido** |
 
 ## Instalación
 
+### Como herramienta CLI
 ```bash
 git clone https://github.com/antnet1094/plf
 cd plf
-go mod download
 go build -o plf ./cmd/plf
 sudo mv plf /usr/local/bin/
 ```
 
-## Uso rápido
+### Como biblioteca de Go
+```bash
+go get github.com/antnet1094/plf
+```
+
+## Uso de la CLI
 
 ```bash
-# Renderizar un agente con variables
+# Renderizar un agente con variables y MINIFICACIÓN (ahorro de tokens)
 plf render examples/sysadmin.plf \
-  --var mensaje_usuario="El servicio PostgreSQL no inicia desde las 3am"
+  --var mensaje_usuario="El servicio PostgreSQL no inicia" \
+  --minify
 
-# Renderizar para Nexus API (JSON listo para enviar)
-plf render examples/sysadmin.plf \
-  --var mensaje_usuario="nginx devuelve 502" \
-  --format nexus \
-  --json \
-  --output prompt.json
+# Resolución dinámica (MCP): Inyecta data en vivo desde archivos o APIs
+# En el .plf: @context: Health: MCP: file://logs.txt
+plf render test_mcp.plf
 
-# Validar antes de desplegar
+# Evaluación de regresión (E2E)
+plf eval examples/sysadmin.plf testsuite.json
+
+# Validación semántica y Linting
 plf validate examples/whatsapp_router.plf
-
-# Ver estructura parseada
-plf inspect examples/restaurant_bot.plf
-
-# Linting con sugerencias
 plf lint examples/sysadmin.plf
 ```
 
-## Estructura de un archivo `.plf`
+## Estructura de un archivo `.plf` (v1.0)
 
-```
+```yaml
 @meta
   version: 1.0
   lang: es
   target: nexus
 
 @role
-  Eres un técnico de sistemas Ubuntu 24.04. Solo trabajas con
-  información verificada de @context. Español técnico preciso.
+  Eres un técnico senior especializado en infra. Solo usas @context.
 
 @context
   PostgreSQL 16: puerto 5432, logs /var/log/postgresql/
-  Redis 7.2: puerto 6379, config /etc/redis/redis.conf
-  Comandos seguros: systemctl status|restart, tail -f, journalctl
+  System Metrics: MCP: file://mock_data.txt # Contexto dinámico en vivo
+
+@tools
+  reiniciar_servicio: Reinicia un servicio del sistema
+    params:
+      - service_name (string, required): nombre del servicio
 
 @rules
-  NEVER: rm -rf sin confirmar ruta
-  NEVER: kill -9 sin PID específico
+  NEVER: rm -rf sin confirmar
   ALWAYS: advertir riesgos antes de ejecutar
   MAX COMMANDS: 3
 
 @fallback
   signals: creo que, probablemente, quizás, no estoy seguro
   default: No tengo información verificada. Requiere diagnóstico root.
-  unknown: Este servicio no está en mi contexto verificado.
-  escalate: sysadmin-on-call
 
 @chain
-  1. ¿El servicio mencionado está en @context? → si no: fallback
-  2. ¿El comando está en comandos seguros? → si no: evaluar riesgo
-  3. ¿Se cumplen todas las @rules? → si no: aplicar restricción
+  1. ¿El servicio está en @context? → si no: fallback
+  2. ¿El comando es seguro? → si no: aplicar restricción
 
 @task
   {{ mensaje_usuario }}
 
 @output
-  format: numbered_steps
-  max_words: 180
+  format: json
+  fields: target(string), reason(string: motivo del fallo)
   language: es
 ```
 
-## Integración en Go
+## Integración en Go (Biblioteca)
 
 ```go
 package main
@@ -109,69 +110,60 @@ import (
     "github.com/antnet1094/plf/pkg/validator"
 )
 
-func BuildPrompt(plfPath, userInput string) (*types.RenderResult, error) {
-    doc, err := parser.ParseFile(plfPath)
-    if err != nil {
-        return nil, err
-    }
+func main() {
+    // 1. Parsear el archivo
+    doc, _ := parser.ParseFile("agent.plf")
 
+    // 2. Validar semántica
     issues := validator.Validate(doc)
     if validator.HasErrors(issues) {
-        return nil, fmt.Errorf("PLF validation failed: %v", issues)
+        panic("Error de validación")
     }
 
-    return renderer.Render(doc, types.RenderOptions{
-        Vars:   map[string]string{"mensaje_usuario": userInput},
+    // 3. Renderizar con resolución dinámica y minificación
+    result, _ := renderer.Render(doc, types.RenderOptions{
+        Vars:   map[string]string{"mensaje_usuario": "hola"},
         Format: types.FormatNexus,
+        Minify: true,
+        Resolver: func(uri string) (string, error) {
+            // Implementación de MCP personalizada (file, http, etc)
+            return "Datos dinámicos", nil
+        },
     })
+
+    // 4. Obtener payload para API
+    apiPayload := renderer.ToNexus(result)
+    fmt.Println(apiPayload.System)
 }
 ```
 
-## Ejemplos incluidos
+## Características Enterprise (Fase 2)
 
-| Archivo | Descripción | Variables |
-|---|---|---|
-| `examples/sysadmin.plf` | Soporte técnico Ubuntu/Debian producción | `mensaje_usuario` |
-| `examples/whatsapp_router.plf` | Router multi-tenant para plataforma SaaS WhatsApp | `tenant_id`, `mensaje` |
-| `examples/restaurant_bot.plf` | Atención al cliente restaurante colombiano | `nombre_restaurante`, `ciudad`, `mensaje_cliente` |
+### 1. Resolución Dinámica de Contexto (MCP)
+PLF ya no es estático. Puedes definir entradas en `@context` con el prefijo `MCP:` o `DYNAMIC:`. El renderer suspenderá la ejecución, llamará a tu `Resolver` y concatenará la data fresca antes de que el LLM la vea.
 
-## Diseño de `@fallback` vs threshold numérico
+### 2. Minificador de Tokens
+Soporta un flag `--minify` que comprime el prompt a su densidad entrópica máxima, eliminando ASCII art, redundancia de instrucciones y espacios innecesarios, ahorrando hasta un 20% de tokens.
 
-El approach original de `threshold: 0.95` es incorrecto porque los LLMs no exponen probabilidades calibradas al autor del prompt. `@fallback` usa en cambio **señales lingüísticas observables**:
-
-```
-# ❌ No funciona — el modelo no tiene acceso a esta métrica
-@certainty
-  threshold: 0.95
-
-# ✅ Funciona — el modelo SÍ produce estas frases cuando está inseguro
-@fallback
-  signals: creo que, probablemente, quizás, podría ser
-  default: No tengo información verificada para esto.
-```
-
-Cuando el modelo está formando una respuesta insegura, naturalmente produce lenguaje hedónico. `@fallback.signals` convierte ese comportamiento emergente en un trigger explícito y controlado.
+### 3. Framework de Evaluación (`plf eval`)
+Permite ejecutar suites de pruebas automatizadas contra modelos locales (Llama.cpp, Ollama) para medir la tasa de acierto y detectar regresiones en los cambios de prompts.
 
 ## Estructura del proyecto
 
 ```
 plf/
-├── cmd/plf/main.go              # CLI (validate, render, inspect, lint)
+├── cmd/plf/main.go              # CLI (validate, render, eval, lint)
 ├── pkg/
 │   ├── types/types.go           # Tipos centrales
-│   ├── parser/parser.go         # Lexer + parser por sección
-│   ├── validator/validator.go   # Validación semántica y cross-section
-│   └── renderer/renderer.go     # Render a prompt estructurado
-├── examples/
-│   ├── sysadmin.plf
-│   ├── whatsapp_router.plf
-│   └── restaurant_bot.plf
-├── docs/
-│   └── SPEC.md                  # Especificación completa
+│   ├── parser/parser.go         # Lexer + parser inductivo
+│   ├── validator/validator.go   # Validación semántica cruzada
+│   ├── renderer/renderer.go     # Compilador a prompt estructurado
+│   └── evaluator/evaluator.go   # Motor de tests de regresión LLM
+├── examples/                    # Agentes listos para usar
+├── docs/                        # Especificación completa y planes
 └── README.md
 ```
 
 ## Licencia
 
 MIT — libre para uso comercial, incluyendo en plataformas SaaS.
-

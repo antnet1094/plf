@@ -4,21 +4,42 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/antnet1094/plf.svg)](https://pkg.go.dev/github.com/antnet1094/plf)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**Formato estructurado para agentes LLM que reduce alucinaciones mediante fronteras de conocimiento explícitas, protocolos de incertidumbre conductuales y resolución dinámica de contexto (MCP).**
+**PLF es el sustituto estructurado de los archivos `.md` para ingeniería de prompts. Reduce alucinaciones mediante fronteras de conocimiento explícitas, protocolos de incertidumbre conductuales y resolución dinámica de contexto (MCP).**
 
 ---
 
-## El problema real
+## 🎯 ¿Por qué PLF en lugar de `.md`?
 
-Los LLMs no alucinan principalmente por sus pesos — alucinan porque los prompts son ambiguos. Concretamente:
+Los archivos Markdown (`.md`) son ideales para humanos, pero **pésimos para LLMs** debido a su ambigüedad estructural. PLF transforma tus instrucciones en un motor determinista:
 
-| Causa | Frecuencia | Solución PLF |
+| Característica | Prompt en `.md` | Prompt en PLF |
 |---|---|---|
-| Contexto implícito (el modelo "adivina") | Alta | `@context` como frontera explícita |
-| Sin protocolo cuando el modelo no sabe | Alta | `@fallback` con señales conductuales |
-| Reglas contradictorias no detectadas | Media | Validador semántico pre-envío |
-| Razonamiento sin puntos de control | Media | `@chain` con bifurcaciones |
-| Output sin estructura definida | Alta | `@output` con **JSON Schema rígido** |
+| **Estructura** | Texto libre, inconsistente | Secciones `@` rígidas |
+| **Validación** | Ninguna (error en runtime) | Validador semántico pre-envío |
+| **Contexto** | Mezclado con instrucciones | Frontera `@context` aislada |
+| **Incertidumbre** | El modelo inventa si no sabe | Protocolo `@fallback` explícito |
+| **Variables** | Reemplazo de texto frágil | Template engine con tipado fuerte |
+
+---
+
+## Ecosistema Políglota: Motor Único, Múltiples Lenguajes
+
+PLF está escrito en **Go** para máxima velocidad, pero está diseñado para ser el **Estándar Universal** de prompts. No necesitas reescribir la lógica; puedes consumir el motor de Go desde cualquier lenguaje mediante el **Bridge** (`bridge.go`).
+
+### 🐍 Uso desde Python (IA/Data Science)
+Ideal para integrar PLF en **LangChain**, **LlamaIndex** o **Hugging Face**.
+
+```python
+from bindings.python.plf import render_plf
+
+# Sustituye tus archivos .md por .plf en Python:
+prompt = render_plf("agente.plf", {"user_input": "..."})
+```
+
+### 🌐 Uso desde JavaScript/Node.js (Web Apps)
+Perfecto para aplicaciones con **Next.js** o **SaaS** de IA concurrentes.
+
+---
 
 ## Instalación
 
@@ -32,35 +53,29 @@ sudo mv plf /usr/local/bin/
 
 ### Como biblioteca de Go
 ```bash
-go get github.com/antnet1094/plf
+go get github.com/antnet1094/plf@v1.0.0
 ```
 
-## Uso de la CLI
+---
 
-```bash
-# Renderizar un agente con variables y MINIFICACIÓN (ahorro de tokens)
-plf render examples/sysadmin.plf \
-  --var mensaje_usuario="El servicio PostgreSQL no inicia" \
-  --minify
+## Características Enterprise (Fase 2)
 
-# Resolución dinámica (MCP): Inyecta data en vivo desde archivos o APIs
-# En el .plf: @context: Health: MCP: file://logs.txt
-plf render test_mcp.plf
+### 1. Resolución Dinámica de Contexto (MCP)
+PLF ya no es estático. Puedes definir entradas en `@context` con el prefijo `MCP:` o `DYNAMIC:`. El renderer inyectará datos reales (ej. logs, métricas de DB) en vivo.
 
-# Evaluación de regresión (E2E)
-plf eval examples/sysadmin.plf testsuite.json
+### 2. Minificador de Tokens (`-minify`)
+Comprime el prompt a su densidad entrópica máxima, eliminando ASCII art y redundancia, ahorrando hasta un 20% de tokens.
 
-# Validación semántica y Linting
-plf validate examples/whatsapp_router.plf
-plf lint examples/sysadmin.plf
-```
+### 3. Framework de Evaluación (`plf eval`)
+Ejecuta suites de pruebas automatizadas contra modelos locales para medir la tasa de acierto y detectar regresiones.
 
-## Estructura de un archivo `.plf` (v1.0)
+---
+
+## Ejemplo de un Agente PLF (v1.0)
 
 ```yaml
 @meta
   version: 1.0
-  lang: es
   target: nexus
 
 @role
@@ -93,77 +108,25 @@ plf lint examples/sysadmin.plf
 
 @output
   format: json
-  fields: target(string), reason(string: motivo del fallo)
-  language: es
+  fields: target(string), reason(string)
 ```
 
-## Integración en Go (Biblioteca)
+---
 
-```go
-package main
+## Compilación del Bridge (Cross-Language)
 
-import (
-    "fmt"
-    "github.com/antnet1094/plf/pkg/parser"
-    "github.com/antnet1094/plf/pkg/renderer"
-    "github.com/antnet1094/plf/pkg/types"
-    "github.com/antnet1094/plf/pkg/validator"
-)
+Para generar la biblioteca compartida para otros lenguajes (requiere `gcc/mingw`):
 
-func main() {
-    // 1. Parsear el archivo
-    doc, _ := parser.ParseFile("agent.plf")
+```bash
+# Windows
+go build -o libplf.dll -buildmode=c-shared bridge.go
 
-    // 2. Validar semántica
-    issues := validator.Validate(doc)
-    if validator.HasErrors(issues) {
-        panic("Error de validación")
-    }
-
-    // 3. Renderizar con resolución dinámica y minificación
-    result, _ := renderer.Render(doc, types.RenderOptions{
-        Vars:   map[string]string{"mensaje_usuario": "hola"},
-        Format: types.FormatNexus,
-        Minify: true,
-        Resolver: func(uri string) (string, error) {
-            // Implementación de MCP personalizada (file, http, etc)
-            return "Datos dinámicos", nil
-        },
-    })
-
-    // 4. Obtener payload para API
-    apiPayload := renderer.ToNexus(result)
-    fmt.Println(apiPayload.System)
-}
+# Linux
+go build -o libplf.so -buildmode=c-shared bridge.go
 ```
 
-## Características Enterprise (Fase 2)
-
-### 1. Resolución Dinámica de Contexto (MCP)
-PLF ya no es estático. Puedes definir entradas en `@context` con el prefijo `MCP:` o `DYNAMIC:`. El renderer suspenderá la ejecución, llamará a tu `Resolver` y concatenará la data fresca antes de que el LLM la vea.
-
-### 2. Minificador de Tokens
-Soporta un flag `--minify` que comprime el prompt a su densidad entrópica máxima, eliminando ASCII art, redundancia de instrucciones y espacios innecesarios, ahorrando hasta un 20% de tokens.
-
-### 3. Framework de Evaluación (`plf eval`)
-Permite ejecutar suites de pruebas automatizadas contra modelos locales (Llama.cpp, Ollama) para medir la tasa de acierto y detectar regresiones en los cambios de prompts.
-
-## Estructura del proyecto
-
-```
-plf/
-├── cmd/plf/main.go              # CLI (validate, render, eval, lint)
-├── pkg/
-│   ├── types/types.go           # Tipos centrales
-│   ├── parser/parser.go         # Lexer + parser inductivo
-│   ├── validator/validator.go   # Validación semántica cruzada
-│   ├── renderer/renderer.go     # Compilador a prompt estructurado
-│   └── evaluator/evaluator.go   # Motor de tests de regresión LLM
-├── examples/                    # Agentes listos para usar
-├── docs/                        # Especificación completa y planes
-└── README.md
-```
+---
 
 ## Licencia
 
-MIT — libre para uso comercial, incluyendo en plataformas SaaS.
+MIT — libre para uso comercial.

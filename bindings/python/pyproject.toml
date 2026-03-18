@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "plf-py"
+version = "1.0.0"
+description = "Python bindings for Prompt Language Format (PLF)"
+readme = "README.md"
+authors = [{ name = "antnet1094" }]
+license = { text = "MIT" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/antnet1094/plf"
+Issues = "https://github.com/antnet1094/plf/issues"

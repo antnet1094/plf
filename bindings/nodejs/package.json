@@ -1,0 +1,30 @@
+{
+  "name": "plf-js",
+  "version": "1.0.0",
+  "description": "JavaScript/Node.js bindings for Prompt Language Format (PLF)",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/antnet1094/plf.git"
+  },
+  "keywords": [
+    "prompt",
+    "llm",
+    "plf",
+    "ai",
+    "langchain"
+  ],
+  "author": "antnet1094",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/antnet1094/plf/issues"
+  },
+  "homepage": "https://github.com/antnet1094/plf#readme",
+  "dependencies": {
+    "ffi-napi": "^4.0.3",
+    "ref-napi": "^3.0.3"
+  }
+}

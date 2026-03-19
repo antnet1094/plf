@@ -1,4 +1,3 @@
-// plf — CLI for the Prompt Language Format
 package main
 
 import (
@@ -7,380 +6,325 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/antnet1094/plf/pkg/parser"
 	"github.com/antnet1094/plf/pkg/renderer"
 	"github.com/antnet1094/plf/pkg/types"
-	"github.com/antnet1094/plf/pkg/validator"
-	"github.com/antnet1094/plf/pkg/evaluator"
 )
 
-const (
-	reset  = "\033[0m"
-	bold   = "\033[1m"
-	red    = "\033[31m"
-	green  = "\033[32m"
-	yellow = "\033[33m"
-	cyan   = "\033[36m"
-	gray   = "\033[37m"
-)
+type SessionLog struct {
+	SessionID      string    `json:"session_id"`
+	AgentName      string    `json:"agent_name"`
+	StartTime      time.Time `json:"start_time"`
+	CurrentTask    string    `json:"current_task"`
+	Thoughts       []Thought `json:"thoughts"`
+	Actions        []Action  `json:"actions"`
+	Progress       int       `json:"progress_percent"`
+	TotalSteps     int       `json:"total_steps"`
+	CompletedSteps int       `json:"completed_steps"`
+}
 
-func col(code, s string) string { return code + s + reset }
+type Thought struct {
+	Timestamp   time.Time `json:"timestamp"`
+	Content     string    `json:"content"`
+	Confidence  string    `json:"confidence"`
+	Updated     bool      `json:"updated,omitempty"`
+	PrevThought string    `json:"prev_thought,omitempty"`
+}
+
+type Action struct {
+	Timestamp     time.Time `json:"timestamp"`
+	Type          string    `json:"type"` // command, read, write, search, test
+	Command       string    `json:"command,omitempty"`
+	Description   string    `json:"description"`
+	Result        string    `json:"result"` // success, partial, failure
+	Output        string    `json:"output,omitempty"`
+	FilesCreated  []string  `json:"files_created,omitempty"`
+	FilesModified []string  `json:"files_modified,omitempty"`
+	Error         string    `json:"error,omitempty"`
+}
 
 func main() {
-	if len(os.Args) < 2 {
-		printUsage()
-		os.Exit(1)
-	}
-	var err error
-	switch os.Args[1] {
-	case "validate":
-		err = runValidate(os.Args[2:])
-	case "render":
-		err = runRender(os.Args[2:])
-	case "inspect":
-		err = runInspect(os.Args[2:])
-	case "lint":
-		err = runLint(os.Args[2:])
-	case "eval":
-		err = runEval(os.Args[2:])
-	case "version":
-		fmt.Println("plf version 1.0.0")
+	mode := flag.String("mode", "generate", "Mode: generate, log-thought, log-action, export")
+	sessionID := flag.String("session", "", "Session ID")
+	agentName := flag.String("agent", "gemini-cli", "Agent name")
+	task := flag.String("task", "", "Task description")
+	template := flag.String("template", "examples/agent_session_logger.plf", "PLF template")
+	output := flag.String("output", "", "Output file (default: session_<id>.plf)")
+
+	flag.Parse()
+
+	switch *mode {
+	case "generate":
+		generateSession(*template, *task, *sessionID, *agentName, *output)
+	case "log-thought":
+		logThought(*sessionID, strings.Join(flag.Args(), " "))
+	case "log-action":
+		logAction(*sessionID, strings.Join(flag.Args(), " "))
+	case "export":
+		exportSession(*sessionID)
+	case "status":
+		showStatus(*sessionID)
+	case "training":
+		startTraining(*sessionID)
 	default:
-		fmt.Fprintf(os.Stderr, "unknown command: %s\n", os.Args[1])
-		printUsage()
-		os.Exit(1)
-	}
-	if err != nil {
-		fmt.Fprintln(os.Stderr, col(red, "Error: ")+err.Error())
+		fmt.Println("Unknown mode:", *mode)
 		os.Exit(1)
 	}
 }
 
-func runValidate(args []string) error {
-	if len(args) == 0 {
-		return fmt.Errorf("usage: plf validate <file.plf>")
+func generateSession(templatePath, task, sessionID, agentName, outputPath string) {
+	if sessionID == "" {
+		sessionID = fmt.Sprintf("session_%d", time.Now().Unix())
 	}
-	doc, err := parser.ParseFile(args[0])
-	if err != nil {
-		return fmt.Errorf("parse error: %w", err)
+	if outputPath == "" {
+		outputPath = fmt.Sprintf("session_%s.plf", sessionID)
 	}
-	issues := validator.Validate(doc)
-	if len(issues) == 0 {
-		fmt.Printf("%s %s — no issues found\n", col(green+bold, "✓"), args[0])
-		return nil
-	}
-	for _, issue := range issues {
-		switch issue.Severity {
-		case "error":
-			fmt.Printf("%s @%-12s %s\n", col(red+bold, "  ERROR  "), issue.Section, issue.Message)
-		case "warning":
-			fmt.Printf("%s @%-12s %s\n", col(yellow, "  WARN   "), issue.Section, issue.Message)
-		case "info":
-			fmt.Printf("%s @%-12s %s\n", col(gray, "  INFO   "), issue.Section, issue.Message)
-		}
-	}
-	if validator.HasErrors(issues) {
-		return fmt.Errorf("\n%s has validation errors", args[0])
-	}
-	fmt.Printf("\n%s %s has warnings but is renderable\n", col(yellow, "⚠"), args[0])
-	return nil
-}
 
-type varFlags []string
-func (v *varFlags) String() string        { return strings.Join(*v, ", ") }
-func (v *varFlags) Set(s string) error    { *v = append(*v, s); return nil }
+	vars := map[string]string{
+		"session_id":             sessionID,
+		"agent_name":             agentName,
+		"task_description":       task,
+		"timestamp_start":        time.Now().Format(time.RFC3339),
+		"task_type":              detectTaskType(task),
+		"priority":               "normal",
+		"constraints":            "None specified",
+		"expected_output":        "Documented solution",
+		"current_thought":        "Initializing session...",
+		"decision_log":           "N/A - Session just started",
+		"actions_log":            "N/A - No actions yet",
+		"command_log":            "N/A",
+		"verification_steps":     "Pending",
+		"test_results":           "Pending",
+		"error_log":              "None",
+		"warnings":               "None",
+		"percentage":             "0",
+		"status":                 "in_progress",
+		"completed_steps":        "None",
+		"current_step":           "Initialization",
+		"remaining_steps":        "To be determined",
+		"new_knowledge":          "N/A",
+		"discovered_items":       "N/A",
+		"old_assumption":         "N/A",
+		"new_assumption":         "N/A",
+		"solution_summary":       "Pending",
+		"key_points":             "Pending",
+		"implementation_details": "Pending",
+		"how_to_use":             "Pending",
+		"limitations":            "Pending",
+		"suggested_next_steps":   "Pending",
+		"duration":               "0",
+		"count":                  "0",
+		"estimate":               "0",
+		"cost":                   "0",
+		"revision_history":       "v1.0 - Session created",
+		"confidence_level":       "MEDIUM",
+		"blockers_if_any":        "None",
+		"total_thoughts":         "0",
+		"total_actions":          "0",
+		"total_errors":           "0",
+	}
 
-func runRender(args []string) error {
-	fs := flag.NewFlagSet("render", flag.ContinueOnError)
-	var vars varFlags
-	fs.Var(&vars, "var", "Template variable key=value (repeatable)")
-	format := fs.String("format", "", "Output format: raw|core|nexus|local")
-	outputFile := fs.String("output", "", "Write output to file")
-	jsonOut := fs.Bool("json", false, "Output as JSON")
-	minifyOut := fs.Bool("minify", false, "Minify (compress) the prompt to save tokens")
-	if err := fs.Parse(args); err != nil {
-		return err
-	}
-	if fs.NArg() == 0 {
-		return fmt.Errorf("usage: plf render <file.plf> [-var key=value] [-format FORMAT] [-json] [-output file]")
-	}
-	doc, err := parser.ParseFile(fs.Arg(0))
+	doc, err := parser.ParseFile(templatePath)
 	if err != nil {
-		return fmt.Errorf("parse error: %w", err)
+		fmt.Fprintf(os.Stderr, "Error parsing template: %v\n", err)
+		os.Exit(1)
 	}
-	issues := validator.Validate(doc)
-	if validator.HasErrors(issues) {
-		return fmt.Errorf("cannot render: validation failed — run 'plf validate' for details")
-	}
+
 	result, err := renderer.Render(doc, types.RenderOptions{
-		Vars:   parseVars(vars),
-		Format: *format,
-		Minify: *minifyOut,
-		Resolver: func(uri string) (string, error) {
-			if strings.HasPrefix(uri, "file://") {
-				b, e := os.ReadFile(strings.TrimPrefix(uri, "file://"))
-				if e != nil {
-					return "", e
-				}
-				return strings.TrimSpace(string(b)), nil
-			}
-			return "", fmt.Errorf("unsupported MCP schema: %s", uri)
-		},
+		Vars: vars,
 	})
 	if err != nil {
-		return err
+		fmt.Fprintf(os.Stderr, "Error rendering: %v\n", err)
+		os.Exit(1)
 	}
-	if len(result.UnresolvedVars) > 0 {
-		fmt.Fprintf(os.Stderr, "%s Unresolved variables: %s\n",
-			col(yellow, "⚠"), strings.Join(result.UnresolvedVars, ", "))
+
+	if err := os.WriteFile(outputPath, []byte(result.Full), 0644); err != nil {
+		fmt.Fprintf(os.Stderr, "Error writing file: %v\n", err)
+		os.Exit(1)
 	}
-	var out []byte
-	if *jsonOut {
-		switch strings.ToLower(*format) {
-		case types.FormatCore:
-			out, _ = json.MarshalIndent(renderer.ToCore(result), "", "  ")
-		case types.FormatNexus:
-			out, _ = json.MarshalIndent(renderer.ToNexus(result), "", "  ")
-		default:
-			out, _ = json.MarshalIndent(map[string]string{"system": result.System, "user": result.User}, "", "  ")
-		}
-	} else {
-		out = []byte(result.Full)
-	}
-	if *outputFile != "" {
-		if err := os.WriteFile(*outputFile, out, 0644); err != nil {
-			return err
-		}
-		fmt.Printf("%s Written to %s\n", col(green+bold, "✓"), *outputFile)
-	} else {
-		fmt.Println(string(out))
-	}
-	return nil
+
+	saveSessionMeta(sessionID, agentName, task, outputPath)
+
+	fmt.Printf("✓ Session generated: %s\n", outputPath)
+	fmt.Printf("  Session ID: %s\n", sessionID)
+	fmt.Printf("  Task: %s\n", task)
+	fmt.Println("\n📝 Use these commands to log during the session:")
+	fmt.Printf("   plf-agent log-thought --session %s \"your thought here\"\n", sessionID)
+	fmt.Printf("   plf-agent log-action --session %s \"command or action\"\n", sessionID)
+	fmt.Printf("   plf-agent status --session %s\n", sessionID)
 }
 
-func runInspect(args []string) error {
-	if len(args) == 0 {
-		return fmt.Errorf("usage: plf inspect <file.plf>")
+func logThought(sessionID, thought string) {
+	logEntry(sessionID, "thought", thought)
+	fmt.Printf("✓ Thought logged to session %s\n", sessionID)
+}
+
+func logAction(sessionID, action string) {
+	logEntry(sessionID, "action", action)
+	fmt.Printf("✓ Action logged to session %s\n", sessionID)
+}
+
+func logEntry(sessionID, entryType, content string) {
+	metaPath := fmt.Sprintf(".plf_sessions/%s.meta", sessionID)
+
+	var log SessionLog
+	if data, err := os.ReadFile(metaPath); err == nil {
+		json.Unmarshal(data, &log)
 	}
-	doc, err := parser.ParseFile(args[0])
+
+	entry := Thought{
+		Timestamp:  time.Now(),
+		Content:    content,
+		Confidence: "MEDIUM",
+	}
+
+	if entryType == "thought" {
+		log.Thoughts = append(log.Thoughts, entry)
+	} else {
+		log.Actions = append(log.Actions, Action{
+			Timestamp:   time.Now(),
+			Type:        "command",
+			Command:     content,
+			Description: content,
+			Result:      "success",
+		})
+	}
+
+	data, _ := json.MarshalIndent(log, "", "  ")
+	os.WriteFile(metaPath, data, 0644)
+}
+
+func showStatus(sessionID string) {
+	metaPath := fmt.Sprintf(".plf_sessions/%s.meta", sessionID)
+
+	data, err := os.ReadFile(metaPath)
 	if err != nil {
-		return fmt.Errorf("parse error: %w", err)
+		fmt.Printf("Session %s not found\n", sessionID)
+		os.Exit(1)
 	}
-	fmt.Printf("\n%s %s\n\n", col(bold, "📄"), args[0])
-	sec("META")
-	kv("version", doc.Meta.Version)
-	kv("lang", doc.Meta.Lang)
-	if doc.Meta.Description != "" { kv("description", doc.Meta.Description) }
-	if doc.Meta.Author != ""      { kv("author", doc.Meta.Author) }
-	if doc.Meta.Target != ""      { kv("target", doc.Meta.Target) }
-	sec("ROLE")
-	fmt.Printf("  %s\n", trunc(doc.Role, 120))
-	sec("CONTEXT")
-	for _, e := range doc.Context {
-		if e.Key != "" {
-			fmt.Printf("  %s %s\n", col(cyan, e.Key+":"), e.Value)
-		} else {
-			fmt.Printf("  %s\n", e.Value)
-		}
-	}
-	sec("TOOLS")
-	if len(doc.Tools) == 0 {
-		fmt.Printf("  %s\n", col(gray, "(none)"))
-	}
-	for _, t := range doc.Tools {
-		desc := t.Description
-		if desc == "" { desc = col(gray, "(no description)") }
-		fmt.Printf("  %s %s\n", col(green+bold, t.Name+":"), desc)
-		if t.Webhook != "" {
-			fmt.Printf("      %s %s\n", col(cyan, "url:"), t.Webhook)
-		}
-		for _, p := range t.Parameters {
-			req := ""
-			if p.Required { req = col(red, " *") }
-			pDesc := ""
-			if p.Description != "" { pDesc = " - " + p.Description }
-			tStr := p.Type
-			if tStr == "" { tStr = "string" }
-			fmt.Printf("      - %s %s%s%s\n", p.Name, col(cyan, "("+tStr+")"), req, pDesc)
-		}
-	}
-	sec("RULES")
-	for _, r := range doc.Rules {
-		var t string
-		switch r.Type {
-		case types.RuleNever:  t = col(red+bold, "NEVER  ")
-		case types.RuleAlways: t = col(green+bold, "ALWAYS ")
-		case types.RuleIf:     t = col(yellow, "IF     ")
-		case types.RuleMax, types.RuleMin: t = col(cyan, r.Type+"    ")
-		default: t = "       "
-		}
-		if r.Subject != "" {
-			fmt.Printf("  %s %-20s %s\n", t, r.Subject, r.Value)
-		} else {
-			fmt.Printf("  %s %s\n", t, r.Value)
-		}
-	}
-	sec("FALLBACK")
-	if len(doc.Fallback.Signals) > 0   { kv("signals",  strings.Join(doc.Fallback.Signals, ", ")) }
-	if doc.Fallback.DefaultAction != "" { kv("default",  doc.Fallback.DefaultAction) }
-	if doc.Fallback.UnknownAction != ""  { kv("unknown",  doc.Fallback.UnknownAction) }
-	if doc.Fallback.Escalate != ""       { kv("escalate", doc.Fallback.Escalate) }
-	sec("CHAIN")
-	if len(doc.Chain) == 0 {
-		fmt.Printf("  %s\n", col(gray, "(none)"))
-	}
-	for _, step := range doc.Chain {
-		if step.OnFail != "" {
-			fmt.Printf("  %d. %s\n     %s on fail: %s\n", step.Index, step.Question, col(yellow, "→"), step.OnFail)
-		} else {
-			fmt.Printf("  %d. %s\n", step.Index, step.Question)
-		}
-	}
-	sec("TASK TEMPLATE")
-	fmt.Printf("  %s\n", trunc(doc.TaskTemplate, 200))
-	sec("OUTPUT")
-	if doc.Output.Format != ""   { kv("format", doc.Output.Format) }
-	if doc.Output.MaxWords > 0   { kv("max_words", fmt.Sprintf("%d", doc.Output.MaxWords)) }
-	if doc.Output.Language != "" { kv("language", doc.Output.Language) }
-	kv("include_chain", fmt.Sprintf("%v", doc.Output.IncludeChain))
-	if len(doc.Custom) > 0 {
-		sec("CUSTOM SECTIONS")
-		for name, lines := range doc.Custom {
-			fmt.Printf("  @%s (%d lines)\n", name, len(lines))
-		}
-	}
+
+	var log SessionLog
+	json.Unmarshal(data, &log)
+
+	duration := time.Since(log.StartTime)
+
+	fmt.Printf("\n📊 Session Status: %s\n\n", sessionID)
+	fmt.Printf("  Agent:     %s\n", log.AgentName)
+	fmt.Printf("  Task:      %s\n", log.CurrentTask)
+	fmt.Printf("  Duration:  %s\n", duration.Round(time.Second))
+	fmt.Printf("  Progress:  %d%% (%d/%d steps)\n", log.Progress, log.CompletedSteps, log.TotalSteps)
+	fmt.Printf("  Thoughts:  %d logged\n", len(log.Thoughts))
+	fmt.Printf("  Actions:   %d logged\n", len(log.Actions))
 	fmt.Println()
-	return nil
 }
 
-func runLint(args []string) error {
-	if len(args) == 0 {
-		return fmt.Errorf("usage: plf lint <file.plf>")
-	}
-	doc, err := parser.ParseFile(args[0])
+func exportSession(sessionID string) {
+	metaPath := fmt.Sprintf(".plf_sessions/%s.meta", sessionID)
+
+	data, err := os.ReadFile(metaPath)
 	if err != nil {
-		return fmt.Errorf("parse error: %w", err)
+		fmt.Printf("Session %s not found\n", sessionID)
+		os.Exit(1)
 	}
-	issues := validator.Validate(doc)
-	errs, warns, infos := 0, 0, 0
-	for _, i := range issues {
-		switch i.Severity {
-		case "error":   errs++
-		case "warning": warns++
-		case "info":    infos++
-		}
-	}
-	fmt.Printf("\n%s PLF Lint: %s\n\n", col(bold, "🔍"), args[0])
-	if len(issues) == 0 {
-		fmt.Printf("  %s All checks passed — document is optimal\n", col(green+bold, "✓"))
-	} else {
-		for _, issue := range issues {
-			s := issue.Section
-			if s == "" { s = "global" }
-			switch issue.Severity {
-			case "error":
-				fmt.Printf("  %s @%-12s %s\n", col(red+bold, "✗ ERROR  "), s, issue.Message)
-			case "warning":
-				fmt.Printf("  %s @%-12s %s\n", col(yellow, "⚠ WARN   "), s, issue.Message)
-			case "info":
-				fmt.Printf("  %s @%-12s %s\n", col(gray, "ℹ INFO   "), s, issue.Message)
-			}
-		}
-	}
-	fmt.Printf("\n  %s  %s  %s\n\n",
-		col(red, fmt.Sprintf("%d errors", errs)),
-		col(yellow, fmt.Sprintf("%d warnings", warns)),
-		col(gray, fmt.Sprintf("%d suggestions", infos)),
-	)
-	if errs > 0 {
-		return fmt.Errorf("lint failed with %d errors", errs)
-	}
-	return nil
+
+	var log SessionLog
+	json.Unmarshal(data, &log)
+
+	output := generatePLFFromSession(&log)
+	
+	os.MkdirAll("secciones", 0755)
+	plfPath := fmt.Sprintf("secciones/session_%s_exported.plf", sessionID)
+	os.WriteFile(plfPath, []byte(output), 0644)
+
+	fmt.Printf("✓ Session exported to: %s\n", plfPath)
 }
 
-func runEval(args []string) error {
-	if len(args) < 2 {
-		return fmt.Errorf("usage: plf eval <file.plf> <testsuite.json>")
+func generatePLFFromSession(log *SessionLog) string {
+	var sb strings.Builder
+
+	sb.WriteString("# AGENT SESSION EXPORT\n")
+	sb.WriteString("# Generated by PLF Agent Session Logger\n\n")
+
+	sb.WriteString("@meta\n")
+	sb.WriteString(fmt.Sprintf("  session_id: %s\n", log.SessionID))
+	sb.WriteString(fmt.Sprintf("  agent_name: %s\n", log.AgentName))
+	sb.WriteString(fmt.Sprintf("  start_time: %s\n", log.StartTime.Format(time.RFC3339)))
+	sb.WriteString(fmt.Sprintf("  end_time: %s\n", time.Now().Format(time.RFC3339)))
+	sb.WriteString(fmt.Sprintf("  duration: %s\n", time.Since(log.StartTime).Round(time.Second)))
+	sb.WriteString("\n")
+
+	sb.WriteString("@thoughts\n")
+	sb.WriteString("# INNER REASONING LOG\n\n")
+	for i, t := range log.Thoughts {
+		sb.WriteString(fmt.Sprintf("## Thought #%d\n", i+1))
+		sb.WriteString(fmt.Sprintf("- timestamp: %s\n", t.Timestamp.Format(time.RFC3339)))
+		sb.WriteString(fmt.Sprintf("- content: %s\n", t.Content))
+		sb.WriteString(fmt.Sprintf("- confidence: %s\n\n", t.Confidence))
 	}
-	results, err := evaluator.RunEval(args[0], args[1])
-	if err != nil {
-		return err
-	}
-	fmt.Printf("\n%s EVALUATION RESULTS: %s\n\n", col(bold, "🧪"), args[0])
-	allPassed := true
-	for i, res := range results {
-		status := col(red+bold, "FAIL")
-		if res.Passed {
-			status = col(green+bold, "PASS")
-		} else {
-			allPassed = false
+
+	sb.WriteString("@actions\n")
+	sb.WriteString("# COMMAND AND ACTION LOG\n\n")
+	for i, a := range log.Actions {
+		sb.WriteString(fmt.Sprintf("## Action #%d\n", i+1))
+		sb.WriteString(fmt.Sprintf("- timestamp: %s\n", a.Timestamp.Format(time.RFC3339)))
+		sb.WriteString(fmt.Sprintf("- type: %s\n", a.Type))
+		if a.Command != "" {
+			sb.WriteString(fmt.Sprintf("- command: `%s`\n", a.Command))
 		}
-		fmt.Printf("  [%d] %-20s %s (%v)\n", i+1, res.CaseName, status, res.Latency)
-		if !res.Passed {
-			if res.Error != nil {
-				fmt.Printf("      Error: %v\n", res.Error)
-			}
-			if res.Response != "" {
-				fmt.Printf("      Response: %s\n", trunc(res.Response, 150))
-			}
+		sb.WriteString(fmt.Sprintf("- description: %s\n", a.Description))
+		sb.WriteString(fmt.Sprintf("- result: %s\n", a.Result))
+		if a.Error != "" {
+			sb.WriteString(fmt.Sprintf("- error: %s\n", a.Error))
 		}
+		sb.WriteString("\n")
 	}
-	fmt.Println()
-	if !allPassed {
-		return fmt.Errorf("evaluation test suite failed")
+
+	sb.WriteString("@progress\n")
+	sb.WriteString(fmt.Sprintf("PROGRESS: %d%%\n", log.Progress))
+	sb.WriteString(fmt.Sprintf("COMPLETED_STEPS: %d/%d\n", log.CompletedSteps, log.TotalSteps))
+	sb.WriteString("\n")
+
+	return sb.String()
+}
+
+func saveSessionMeta(sessionID, agentName, task, outputPath string) {
+	os.MkdirAll(".plf_sessions", 0755)
+
+	log := SessionLog{
+		SessionID:      sessionID,
+		AgentName:      agentName,
+		CurrentTask:    task,
+		StartTime:      time.Now(),
+		Thoughts:       []Thought{},
+		Actions:        []Action{},
+		Progress:       0,
+		TotalSteps:     0,
+		CompletedSteps: 0,
 	}
-	return nil
+
+	data, _ := json.MarshalIndent(log, "", "  ")
+	metaPath := fmt.Sprintf(".plf_sessions/%s.meta", sessionID)
+	os.WriteFile(metaPath, data, 0644)
 }
 
-func parseVars(pairs []string) map[string]string {
-	m := make(map[string]string)
-	for _, p := range pairs {
-		if idx := strings.Index(p, "="); idx != -1 {
-			m[p[:idx]] = p[idx+1:]
-		} else {
-			m[p] = ""
-		}
+func detectTaskType(task string) string {
+	taskLower := strings.ToLower(task)
+	if strings.Contains(taskLower, "bug") || strings.Contains(taskLower, "fix") {
+		return "bug_fix"
 	}
-	return m
+	if strings.Contains(taskLower, "test") {
+		return "testing"
+	}
+	if strings.Contains(taskLower, "doc") || strings.Contains(taskLower, "readme") {
+		return "documentation"
+	}
+	if strings.Contains(taskLower, "refactor") {
+		return "refactoring"
+	}
+	if strings.Contains(taskLower, "feature") || strings.Contains(taskLower, "add") {
+		return "feature_development"
+	}
+	return "general"
 }
-
-func sec(name string)    { fmt.Printf("\n  %s\n", col(bold, "── "+name)) }
-func kv(k, v string)     { fmt.Printf("  %-16s %s\n", col(cyan, k+":"), v) }
-func trunc(s string, n int) string {
-	s = strings.ReplaceAll(s, "\n", " ↵ ")
-	if len(s) > n { return s[:n] + "…" }
-	return s
-}
-
-func printUsage() {
-	fmt.Print(`
-PLF — Prompt Language Format toolkit
-
-USAGE:
-  plf <command> [options]
-
-COMMANDS:
-  validate <file.plf>           Validate a PLF file
-  render   <file.plf> [flags]   Render to a prompt string
-  inspect  <file.plf>           Show parsed structure
-  lint     <file.plf>           Extended linting with suggestions
-  eval     <file.plf> <tests>   Run regression test suite against LLM
-  version                       Print version
-
-RENDER FLAGS:
-  -var key=value    Template variable (repeatable)
-  -format string    Output format: raw | core | nexus | local
-  -json             Output as JSON
-  -output string    Write to file instead of stdout
-
-EXAMPLES:
-  plf validate examples/sysadmin.plf
-  plf render   examples/sysadmin.plf -var mensaje_usuario="El servicio no inicia"
-  plf render   examples/sysadmin.plf -var mensaje_usuario="502" -format nexus -json -output p.json
-  plf inspect  examples/whatsapp_router.plf
-  plf lint     examples/restaurant_bot.plf
-
-`)
-}
-
